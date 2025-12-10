@@ -4,11 +4,23 @@ import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime, timedelta
 
+# Update comments
+
+# avoid hardocded consnts and paramters
+GRID_ALPHA = 0.3  # ...
+WINDOW_SIZE = 5
+NUMBER_OF_POINTS  = 50
+
+START_DATE = "2024-01-01" 
+END_DATE = "2024-12-31"
+
+
+
 # -------------------------- 1. 全局配置 --------------------------
 plt.rcParams['font.sans-serif'] = ['Arial']
 plt.rcParams['figure.figsize'] = (12, 8)
 plt.rcParams['axes.grid'] = True
-plt.rcParams['grid.alpha'] = 0.3
+plt.rcParams['grid.alpha'] = GRID_ALPHA
 
 # -------------------------- 2. 下载股票数据 --------------------------
 def get_stock_data(ticker, start_date=None, end_date=None):

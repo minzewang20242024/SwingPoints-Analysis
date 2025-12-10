@@ -4,7 +4,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 import yfinance as yf
 
+OUTPUT_FOLDER
+OUTPUT_FILE = 
+
+
+
 # 修正数据转换：通过.values获取数值数组后转列表
+# input of DATA
+
+# MAJKE IT AS A Function
+# def input(start_date, end_date) 
+
 df = yf.download("AAPL", start="2025-01-01", end="2025-06-01")
 close_price = df["Close"].values.tolist()  # 修正转换写法
 price_dates = df.index.tolist()
@@ -32,6 +42,7 @@ sl_prices = [close_price[i] for i in sl_indices]
 sl_dates = [price_dates[i] for i in sl_indices]
 
 # 绘图
+# def plotSwings( )
 plt.rcParams['font.sans-serif'] = ['Arial']
 plt.figure(figsize=(10, 6))
 plt.plot(price_dates, close_price, color="blue", label="AAPL Close Price")
@@ -44,6 +55,7 @@ plt.legend()
 plt.grid(alpha=0.3)
 plt.xticks(rotation=45)
 
+#X def save_results()
 plt.savefig("/Users/xavier/Desktop/swing_points.png", dpi=150, bbox_inches="tight")
 plt.show()
 
