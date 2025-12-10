@@ -1,0 +1,139 @@
+\documentclass[a4paper,12pt]{article}
+% Preamble: Load required packages (APA formatting, graphics, encoding, etc.)
+\usepackage[utf8]{inputenc} % Support UTF-8 encoding
+\usepackage{graphicx} % Insert images
+\usepackage{apacite} % Core: Support APA 7th citation style
+\usepackage{natbib} % Enhanced citation functionality (author-year in-text citations)
+\usepackage{geometry} % Page margin settings
+\geometry{a4paper, margin=1in} % Standard academic margins (1 inch)
+\usepackage{hyperref} % Support hyperlinks (cross-references to figures/references)
+\hypersetup{colorlinks=true, linkcolor=blue, citecolor=blue} % Hyperlink styling
+
+% Report title, author, date
+\title{Technical Analysis Report of AAPL Stock (2024): Data Acquisition, Swing Point Identification, and Trend Line Plotting}
+\author{Your Name}
+\date{\today}
+
+\begin{document}
+% Generate title page
+\maketitle
+
+% Abstract (required for academic reports)
+\begin{abstract}
+This report presents a comprehensive workflow for analyzing historical stock price data of Apple Inc. (ticker: AAPL) from January 1, 2024, to December 31, 2024, covering data acquisition, core algorithm implementation, and visualization analysis. Historical stock price data was retrieved using Python’s yfinance library; swing highs and swing lows were identified via the sliding window method; and upward/downward trend lines were plotted using Matplotlib. Results indicate that AAPL exhibited a clear upward trend in 2024, with swing points and trend lines effectively reflecting price support and resistance levels. All code for the project has been integrated into a unified project structure and uploaded to a GitHub repository for collaboration and reuse.
+\end{abstract}
+
+% Main sections (structured to cover all task deliverables)
+\section{Project Overview}
+\subsection{1.1 Project Objectives}
+This project aims to complete the following core tasks using technical analysis tools:
+1. Automatically retrieve historical closing price data for AAPL stock;
+2. Implement a swing point (Swing Highs/Lows) identification algorithm to locate short-term price peaks and troughs;
+3. Fit upward/downward trend lines based on swing points to visualize stock price movement patterns;
+4. Integrate all functional code into a unified project and generate a structured report in LaTeX (with APA 7th citation style).
+
+\subsection{1.2 Technology Stack Selection}
+Python was adopted as the core development language for the project, with dependencies on the following tools and libraries (\citet{python_org, yfinance_doc}):
+- \textbf{yfinance}: Free retrieval of historical stock data from Yahoo Finance, supporting custom time ranges;
+- \textbf{Pandas/Numpy}: Data cleaning, time series processing, and linear regression (for trend line fitting);
+- \textbf{Matplotlib}: Visualization of stock price curves and trend lines, generating high-resolution charts;
+- \textbf{Git/GitHub}: Code version control and collaborative management;
+- \textbf{LaTeX}: Generation of academically standardized report documents, adhering to APA 7th citation style.
+
+\section{Data Acquisition and Preprocessing}
+\subsection{2.1 Data Source and Scope}
+This project uses daily data for AAPL stock from January 1, 2024, to December 31, 2024, sourced from Yahoo Finance (retrieved automatically via the yfinance library). The dataset includes core fields: Date, Open, High, Low, Close, and Volume, with the **Closing Price** serving as the primary indicator for trend analysis (\citet{stock_analysis_guide}).
+
+\subsection{2.2 Implementation of Data Acquisition Code}
+Automated data download was implemented via the custom function `get_stock_data()`, with core logic as follows:
+- Input parameters: stock ticker, start date (start_date), end date (end_date);
+- Default values: If no dates are specified, data for the "past year" is automatically retrieved;
+- Data preprocessing: Reset index (convert date from index to column), convert date format to `datetime` to ensure compatibility with subsequent time series analysis.
+
+Key code snippet:
+\begin{verbatim}
+def get_stock_data(ticker: str, start_date: str = None, end_date: str = None) -> pd.DataFrame:
+    if not end_date:
+        end_date = datetime.now().strftime("%Y-%m-%d")
+    if not start_date:
+        start_date = (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%d")
+    stock_data = yf.download(ticker, start=start_date, end=end_date)
+    stock_data.reset_index(inplace=True)
+    stock_data['Date'] = pd.to_datetime(stock_data['Date'])
+    return stock_data
+\end{verbatim}
+
+\section{Core Function Implementation}
+\subsection{3.1 Swing Point Identification Algorithm}
+Swing points are core indicators for determining trend direction:
+- \textbf{Swing Highs}: A price point that is the maximum value within N trading days before and after itself;
+- \textbf{Swing Lows}: A price point that is the minimum value within N trading days before and after itself.
+
+This project implements identification using the **Sliding Window Method** (window size N=5). The core logic of the `find_swing_points()` function is to iterate through the closing price sequence, check the price of each point against the 5 points before and after it, and mark the point as a swing point if it meets the "maximum/minimum value" criteria (\citet{swing_point_algorithm}).
+
+Code snippet:
+\begin{verbatim}
+def find_swing_points(prices, window=5):
+    highs, lows = [], []
+    for i in range(window, len(prices)-window):
+        if prices[i] == max(prices[i-window:i+window+1]):
+            highs.append(i)
+        if prices[i] == min(prices[i-window:i+window+1]):
+            lows.append(i)
+    return highs, lows
+\end{verbatim}
+
+\subsection{3.2 Trend Line Fitting and Visualization}
+Based on identified swing points, trend lines are fitted using **Linear Regression**:
+- \textbf{Upward Trend Line}: Connects two or more swing lows, reflecting long-term upward support for stock prices;
+- \textbf{Downward Trend Line}: Connects two or more swing highs, reflecting short-term pullback pressure.
+
+The `fit_trendline()` function implements linear regression via Numpy’s `polyfit()` (fitting the equation $y=ax+b$). The `plot_trend_lines()` function integrates stock price curves, swing point markers, and trend line plotting to generate visual charts.
+
+\section{Result Visualization and Analysis}
+\subsection{4.1 Trend Line Chart Display}
+Figure 1 shows the visualization results of AAPL’s 2024 closing price curve and trend lines, with core elements including:
+- Blue solid line: Daily closing price curve;
+- Red scatter points: Swing Highs (short-term resistance levels);
+- Green scatter points: Swing Lows (short-term support levels);
+- Green dashed line: Upward Trend Line (fitted to swing lows, positive slope);
+- Red dashed line: Short-term Downward Trend Line (fitted to local swing highs, reflecting pullbacks).
+
+\begin{figure}[h!] % h!: Prioritize placing the figure at the current position
+    \centering
+    % Insert chart (upload AAPL_trendlines.png to the root directory of the Overleaf project)
+    \includegraphics[width=1\textwidth]{AAPL_trendlines.png} 
+    \caption{AAPL Stock 2024 Closing Price and Trend Line Analysis Chart}
+    \label{fig:aapl_trend} % Chart label (for in-text cross-referencing)
+\end{figure}
+
+\subsection{4.2 Trend Analysis Conclusions}
+The following conclusions can be drawn from Figure \ref{fig:aapl_trend} (\citet{technical_analysis_book}):
+1. **Overall Trend**: AAPL exhibited a clear upward trend in 2024. The upward trend line (green dashed line) continued to rise, and the stock price rebounded multiple times after retesting the trend line, verifying effective support;
+2. **Swing Point Characteristics**: Swing highs and lows rose progressively ("higher highs and higher lows"), consistent with classic characteristics of an uptrend;
+3. **Short-Term Volatility**: The red dashed line reflects local pullbacks, but the upward trend line was not broken, representing normal adjustments within the uptrend.
+
+\section{Code Integration and GitHub Management}
+\subsection{5.1 Code Integration Strategy}
+All functions (data download, swing point identification, trend line plotting) have been integrated into a unified Python file `stock_analysis_full_project.py`, with the execution workflow as follows:
+1. Call `get_stock_data()` to download 2024 AAPL data;
+2. Call `find_swing_points()` to identify swing points;
+3. Call `plot_trend_lines()` to generate and save visual charts (path: `AAPL_trendlines.png`).
+
+\subsection{5.2 GitHub Collaborative Management}
+Project code and report materials have been uploaded to a GitHub repository (repository link: \url{https://github.com/internprogram/Minze_Wang}) with the following branching strategy:
+- Main branch (main): Stores the final stable version;
+- Feature branch (feature/task-swing-points): Develop and test features, merged into the main branch via Pull Request (PR);
+- Reviewer configuration: `victorb20242024` was added as the PR reviewer to ensure code quality.
+
+\section{Conclusion and Future Outlook}
+This project completed the full workflow of technical analysis for AAPL stock, achieving automated data acquisition, core algorithm development, visualization analysis, and report generation. Future optimizations can be made in the following directions:
+1. Expand stock coverage: Support batch analysis of multiple stocks (e.g., MSFT, GOOG);
+2. Algorithm upgrade: Introduce machine learning models (e.g., LSTM) to predict stock price trends;
+3. Report automation: Automatically generate core content of the LaTeX report (e.g., data statistics, chart paths) via Python scripts.
+
+% References section (APA 7th format, dependent on references.bib file)
+\bibliographystyle{apacite} % Specify APA format
+\bibliography{references} % Link to references file (create references.bib first)
+
+\end{document}
