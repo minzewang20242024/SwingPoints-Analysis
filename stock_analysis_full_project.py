@@ -1,7 +1,7 @@
 # ============================================================
 #   STOCK ANALYSIS PROJECT — Swing Points, Trendlines,
-#   Breakout/Breakdown Detection, Full Visualization
-#   Author: YOUR NAME
+#   Breakout/Breakdown Detection, Multi-Source Support
+#   Author: Minze Wang
 #   Last Updated: 2025
 # ============================================================
 
@@ -14,7 +14,6 @@ import matplotlib.pyplot as plt
 from scipy.signal import argrelextrema
 
 # ---------------------- Global Parameters --------------------
-# Stock-related parameters
 TICKER = "AAPL"
 START_DATE = "2024-01-01"
 END_DATE = "2024-12-31"
@@ -32,73 +31,68 @@ DOWN_TREND_COLOR = "red"
 BREAKOUT_COLOR = "orange"
 BREAKDOWN_COLOR = "purple"
 
-# Breakout confirmation
+# Breakout confirmation days
 CONSECUTIVE_DAYS = 2
 
 
 # ============================================================
-#               DATA ACQUISITION FUNCTION
+#               MULTIPLE DATA SOURCE FUNCTIONS
 # ============================================================
 def get_stock_data(ticker=TICKER, start_date=START_DATE, end_date=END_DATE):
-    """
-    Download historical stock data from Yahoo Finance.
-    """
-    if not end_date:
-        end_date = datetime.now().strftime("%Y-%m-%d")
-    if not start_date:
-        start_date = (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%d")
+    """Download stock data from Yahoo Finance."""
+    stock = yf.download(ticker, start=start_date, end=end_date,
+                        auto_adjust=False, progress=False)
+    stock.reset_index(inplace=True)
+    stock["Date"] = pd.to_datetime(stock["Date"])
+    return stock
 
-    stock_data = yf.download(ticker, start=start_date, end=end_date)
-    stock_data.reset_index(inplace=True)
-    stock_data["Date"] = pd.to_datetime(stock_data["Date"])
-    return stock_data
+
+def get_data_csv(path):
+    """Load stock price data from local CSV file."""
+    df = pd.read_csv(path)
+    df["Date"] = pd.to_datetime(df["Date"])
+    return df
+
+
+def get_data_random(n=250):
+    """Generate synthetic random-walk price data."""
+    dates = pd.date_range(end=datetime.today(), periods=n)
+    prices = np.cumsum(np.random.randn(n)) + 150
+    df = pd.DataFrame({"Date": dates, "Close": prices})
+    return df
 
 
 # ============================================================
 #               SWING POINT DETECTION METHODS
 # ============================================================
 def find_swing_points_sliding_window(prices, window=SWING_WINDOW):
-    """
-    Method 1: Sliding window swing point detection.
-    Detects swing highs (local maxima) and swing lows (local minima).
-    Fixes Series truth-value ambiguity by comparing float values.
-    """
     swing_highs = []
     swing_lows = []
 
     for i in range(window, len(prices) - window):
-        window_slice = prices.iloc[i - window : i + window + 1]
+        window_slice = prices.iloc[i - window: i + window + 1]
 
-        # Convert both sides to float → prevents ambiguous truth value errors
-        if float(prices.iloc[i]) == float(window_slice.max()):
+        # Compare floats using .item() to avoid ambiguity warnings
+        if prices.iloc[i].item() == window_slice.max().item():
             swing_highs.append(i)
 
-        if float(prices.iloc[i]) == float(window_slice.min()):
+        if prices.iloc[i].item() == window_slice.min().item():
             swing_lows.append(i)
 
     return swing_highs, swing_lows
 
 
-
 def find_swing_points_slope_reversal(prices, min_change=MIN_CHANGE, min_distance=MIN_DISTANCE):
-    """
-    Method 2: Slope-Reversal (first derivative sign change).
-    Works in real time (does not use future data).
-    """
     diffs = prices.diff().dropna()
-    swing_highs = []
-    swing_lows = []
-    last_high = -min_distance
-    last_low = -min_distance
+    swing_highs, swing_lows = [], []
+    last_high, last_low = -min_distance, -min_distance
 
     for i in range(1, len(diffs)):
-        # Swing High
         if diffs.iloc[i - 1] > min_change and diffs.iloc[i] <= 0:
             if i - last_high >= min_distance:
                 swing_highs.append(i)
                 last_high = i
 
-        # Swing Low
         if diffs.iloc[i - 1] < -min_change and diffs.iloc[i] >= 0:
             if i - last_low >= min_distance:
                 swing_lows.append(i)
@@ -108,9 +102,6 @@ def find_swing_points_slope_reversal(prices, min_change=MIN_CHANGE, min_distance
 
 
 def find_swing_points_scipy(prices, order=ORDER):
-    """
-    Method 3: SciPy argrelextrema (local maxima/minima detection).
-    """
     values = prices.values
     highs = argrelextrema(values, np.greater, order=order)[0]
     lows = argrelextrema(values, np.less, order=order)[0]
@@ -121,42 +112,33 @@ def find_swing_points_scipy(prices, order=ORDER):
 #               TRENDLINE FITTING FUNCTION
 # ============================================================
 def fit_trendline(dates, prices, swing_indices):
-    """
-    Fit trendline using linear regression on swing points.
-    """
     swing_prices = prices.iloc[swing_indices]
-    dates_numeric = np.arange(len(dates))
-    swing_dates_numeric = dates_numeric[swing_indices]
+    numeric_dates = np.arange(len(dates))
+    swing_numeric = numeric_dates[swing_indices]
 
-    slope, intercept = np.polyfit(swing_dates_numeric, swing_prices, 1)
-    trendline = slope * dates_numeric + intercept
-
+    slope, intercept = np.polyfit(swing_numeric, swing_prices, 1)
+    trendline = slope * numeric_dates + intercept
     return slope, intercept, trendline
 
 
 # ============================================================
 #               BREAKOUT / BREAKDOWN DETECTION
 # ============================================================
-def detect_breakout_breakdown(close_prices, up_trendline, down_trendline):
-    """
-    Detect breakout (price > downtrend line) and breakdown (price < uptrend line).
-    Converts comparison values to float to avoid ambiguous Series truth-value errors.
-    """
-    breakout = []
-    breakdown = []
+def detect_breakout_breakdown(close_prices, up_line, down_line):
+    breakout, breakdown = [], []
 
     for i in range(CONSECUTIVE_DAYS, len(close_prices)):
 
-        # --- Breakout (price crosses above downtrend line)
+        # Breakout detection
         if all(
-            float(close_prices.iloc[i - k]) > float(down_trendline[i - k])
+            close_prices.iloc[i - k].item() > float(down_line[i - k])
             for k in range(CONSECUTIVE_DAYS)
         ):
             breakout.append(i)
 
-        # --- Breakdown (price crosses below uptrend line)
+        # Breakdown detection
         if all(
-            float(close_prices.iloc[i - k]) < float(up_trendline[i - k])
+            close_prices.iloc[i - k].item() < float(up_line[i - k])
             for k in range(CONSECUTIVE_DAYS)
         ):
             breakdown.append(i)
@@ -164,69 +146,76 @@ def detect_breakout_breakdown(close_prices, up_trendline, down_trendline):
     return breakout, breakdown
 
 
-
 # ============================================================
-#               VISUALIZATION FUNCTION
+#               OPTIONAL PLOTTING FUNCTION
 # ============================================================
-def plot_stock_data_with_trend_breakpoints(stock_data):
-    """
-    Plot swing points, trendlines, breakout/breakdown points.
-    """
+def plot_stock_data_with_trend_breakpoints(stock_data, save_path="chart.png"):
     dates = stock_data["Date"]
     close = stock_data["Close"]
 
-    # Step 1: Swing points
-    swing_highs, swing_lows = find_swing_points_sliding_window(close)
+    highs, lows = find_swing_points_sliding_window(close)
 
-    # Step 2: Trendlines
-    up_trendline = np.zeros(len(close))
-    down_trendline = np.zeros(len(close))
+    up_tr, down_tr = np.zeros(len(close)), np.zeros(len(close))
 
-    if len(swing_lows) >= 2:
-        _, _, up_trendline = fit_trendline(dates, close, swing_lows)
-    if len(swing_highs) >= 2:
-        _, _, down_trendline = fit_trendline(dates, close, swing_highs)
+    if len(lows) >= 2:
+        _, _, up_tr = fit_trendline(dates, close, lows)
+    if len(highs) >= 2:
+        _, _, down_tr = fit_trendline(dates, close, highs)
 
-    # Step 3: Breakout / Breakdown
-    breakout, breakdown = detect_breakout_breakdown(close, up_trendline, down_trendline)
+    breakout, breakdown = detect_breakout_breakdown(close, up_tr, down_tr)
 
-    # Step 4: Plot everything
     plt.figure(figsize=FIGSIZE)
-
     plt.plot(dates, close, label="Close Price", color="blue")
-    plt.scatter(dates.iloc[swing_highs], close.iloc[swing_highs], color="red", label="Swing Highs")
-    plt.scatter(dates.iloc[swing_lows], close.iloc[swing_lows], color="green", label="Swing Lows")
+    plt.scatter(dates.iloc[highs], close.iloc[highs], color="red", label="Swing Highs")
+    plt.scatter(dates.iloc[lows], close.iloc[lows], color="green", label="Swing Lows")
+    plt.plot(dates, up_tr, "--", color=UP_TREND_COLOR, label="Uptrend")
+    plt.plot(dates, down_tr, "--", color=DOWN_TREND_COLOR, label="Downtrend")
 
-    plt.plot(dates, up_trendline, linestyle="--", color=UP_TREND_COLOR, label="Uptrend Line")
-    plt.plot(dates, down_trendline, linestyle="--", color=DOWN_TREND_COLOR, label="Downtrend Line")
+    plt.scatter(dates.iloc[breakout], close.iloc[breakout], marker="*", color="orange", s=200)
+    plt.scatter(dates.iloc[breakdown], close.iloc[breakdown], marker="v", color="purple", s=150)
 
-    plt.scatter(dates.iloc[breakout], close.iloc[breakout], marker="*", color=BREAKOUT_COLOR, s=200, label="Breakout Points")
-    plt.scatter(dates.iloc[breakdown], close.iloc[breakdown], marker="v", color=BREAKDOWN_COLOR, s=150, label="Breakdown Points")
-
-    plt.title(f"{TICKER} Trendlines and Breakout/Breakdown Points (2024)")
-    plt.xlabel("Date")
-    plt.ylabel("Close Price (USD)")
+    plt.title("Trendlines & Breakout/Breakdown Signals")
     plt.legend()
-    plt.grid(True, alpha=0.3)
     plt.xticks(rotation=45)
     plt.tight_layout()
-
-    plt.savefig("AAPL_trend_breakpoints.png")
+    plt.savefig(save_path)
     plt.show()
 
-    print("\n===== BREAKOUT/BREAKDOWN SUMMARY =====")
-    print("Breakouts:", len(breakout))
-    print("Breakdown:", len(breakdown))
-
 
 # ============================================================
-#               MAIN EXECUTION
+#               MAIN EXECUTION — ANALYSIS PIPELINE
 # ============================================================
 if __name__ == "__main__":
-    print("Downloading stock data...")
-    stock_data = get_stock_data()
 
-    print("Generating chart with trendlines and breakout/breakdown points...")
-    plot_stock_data_with_trend_breakpoints(stock_data)
+    datasets = {
+        "AAPL (Yahoo)": get_stock_data(),
+        "Random Data": get_data_random(),
+        # Add CSV example if needed:
+        # "CSV Data": get_data_csv("yourfile.csv")
+    }
 
-    print("Analysis completed successfully!")
+    print("\n================ MULTI-DATASET ANALYSIS ================\n")
+
+    for name, df in datasets.items():
+        print(f"\n----- Analyzing {name} -----")
+
+        close = df["Close"]
+        dates = df["Date"]
+
+        # ✦ Step 1: swing points
+        highs, lows = find_swing_points_sliding_window(close)
+
+        # ✦ Step 2: trendlines
+        _, _, up_line = fit_trendline(dates, close, lows) if len(lows) >= 2 else (0, 0, np.zeros(len(close)))
+        _, _, down_line = fit_trendline(dates, close, highs) if len(highs) >= 2 else (0, 0, np.zeros(len(close)))
+
+        # ✦ Step 3: breakout/breakdown detection
+        breakout, breakdown = detect_breakout_breakdown(close, up_line, down_line)
+
+        # ✦ Print results
+        print(f"Swing Highs: {len(highs)}")
+        print(f"Swing Lows:  {len(lows)}")
+        print(f"Breakouts:   {len(breakout)}")
+        print(f"Breakdowns:  {len(breakdown)}")
+
+    print("\n================ ANALYSIS COMPLETED ==================\n")
