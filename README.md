@@ -21,3 +21,10 @@ Describes ....
 
 >>> python full_script.py 
 
+## How to install
+
+We install the following packages (see requriments.txt):
+- pandas
+- scipy
+- ....
+
