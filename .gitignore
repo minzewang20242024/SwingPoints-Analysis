@@ -1,0 +1,13 @@
+# Python virtual environment (excluded to avoid redundant code push)
+stock_env/
+
+# Python compiled bytecode files (auto-generated cache, no need to track)
+__pycache__/
+
+# IDE configuration files (PyCharm/VSCode, project-specific settings)
+.idea/
+.vscode/
+
+# Temporary files (auto-generated during runtime, non-essential)
+*.pyc
+*.tmp

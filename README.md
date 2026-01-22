@@ -1,7 +1,5 @@
 # SwingPoints-Analysis
 
-# SwingPoints-Analysis
-
 This repository contains **code, reports, and visualisations** for identifying **swing points**, fitting **trendlines**, and detecting **breakout / breakdown signals** in financial time series (e.g., AAPL, MSFT, GOOGL from Yahoo Finance).
 
 The project focuses on:
